@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<head>
+    <title>min stad</title>
+    <style>
+        canvas {
+            border: 1px black;
+            background: skyblue;
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+<canvas id="AntoniosStad" width="800" height="500"></canvas>
+<script>
+    const canvas = document.getElementById("AntoniosStad");
+    const ctx = canvas.getContext("2d");
+
+    // Bas-klass för alla objekt med färg och hastighet
+    class Form {
+        constructor(x, y, color, speed = 0) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.speed = speed;
+        }
+
+        setColor() {
+            ctx.fillStyle = this.color;
+        }
+
+        moveXWithinBounds(width = 0) {
+            this.x += this.speed;
+            if (this.x + width > canvas.width || this.x < 0) {
+                this.speed *= -1;
+            }
+        }
+
+        update() {}
+        draw() {}
+    }
+
+    // Tangenttryckningskontroll för att flytta solen
+    let keypress_right_d = false;
+    document.addEventListener('keydown', e => {
+        if (e.key === "d" || e.key === "D") keypress_right_d = true;
+    });
+    document.addEventListener('keyup', e => {
+        if (e.key === "d" || e.key === "D") keypress_right_d = false;
+    });
+
+    // Sol-klass
+    class Sun extends Form {
+        constructor(x, y, color, speed, radius) {
+            super(x, y, color, speed); 
+            this.radius = radius;
+        }
+
+        update() {
+            if (keypress_right_d) this.x += this.speed;
+            if (this.x + this.radius > canvas.width) {
+                this.x = canvas.width - this.radius;
+                this.speed *= -1;
+                keypress_right_d = false;
+            }
+            if (this.x - this.radius < 0) {
+                this.x = this.radius;
+                this.speed *= -1;
+                keypress_right_d = false;
+            }
+        }
+
+        draw() {
+            this.setColor();
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Bil-klass med separata färger för kropp, hjul och hytt
+    class Car extends Form {
+        constructor(x, y, speed, color, wheelColor, width, height) {
+            super(x, y, color, speed); 
+            this.wheelColor = wheelColor;
+            this.width = width;
+            this.height = height;
+        }
+
+        update() {
+            this.moveXWithinBounds(this.width);
+        }
+
+        drawWheel(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        draw() {
+            // Bilens kropp och tak
+            this.setColor();
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(this.x + 15, this.y - 15, 30, 40);
+            // Hjul
+            ctx.fillStyle = this.wheelColor;
+            this.drawWheel(this.x + 15, this.y + 30);
+            this.drawWheel(this.x + 45, this.y + 30);
+        }
+    }
+
+    // Träd med separat löv- och stamfärg
+    class Tree extends Form {
+        constructor(x, y, leafColor, trunkColor) {
+            super(x, y, leafColor); 
+            this.trunkColor = trunkColor;
+        }
+
+        draw() {
+            // Stam
+            ctx.fillStyle = this.trunkColor;
+            ctx.fillRect(this.x - 10, this.y + 30, 20, 40);
+            // Löv
+            this.setColor();
+            ctx.beginPath();
+            ctx.arc(this.x, this.y + 30, 30, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Hus med väggar, tak, fönster och dörr i separata färger
+    class House extends Form {
+        constructor(x, y, wallColor, roofColor, windowColor, doorColor) {
+            super(x, y, wallColor); 
+            this.roofColor = roofColor;
+            this.windowColor = windowColor;
+            this.doorColor = doorColor;
+            this.width = 100;
+            this.height = 100;
+        }
+
+        draw() {
+            // Väggar
+            this.setColor();
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            // Tak
+            ctx.fillStyle = this.roofColor;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 15, this.y);
+            ctx.lineTo(this.x + this.width / 2, this.y - 50);
+            ctx.lineTo(this.x + this.width + 15, this.y);
+            ctx.closePath();
+            ctx.fill();
+            // Dörr
+            ctx.fillStyle = this.doorColor;
+            ctx.fillRect(this.x + 35, this.y + 60, 30, 40);
+            // Fönster
+            ctx.fillStyle = this.windowColor;
+            const windows = [
+                [this.x + 15, this.y + 20],
+                [this.x + 55, this.y +20]
+            ];
+            windows.forEach(([x, y]) => ctx.fillRect(x, y, 30, 20));
+        }
+    }
+
+    // Väg med asfalt och linjer
+    class Road extends Form {
+        constructor(y, roadColor, lineColor) {
+            super(0, y, roadColor); 
+            this.lineColor = lineColor;
+        }
+        
+        draw() {
+            // Asfalt
+            this.setColor();
+            ctx.fillRect(0, this.y, 800, 100);
+            // Linjer
+            ctx.strokeStyle = this.lineColor;
+            ctx.lineWidth = 4;
+            for (let x = 0; x < 800; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, this.y + 50);
+                ctx.lineTo(x + 20, this.y + 50);
+                ctx.stroke();
+            }
+        }
+    }
+
+    // Lista med alla objekt och deras färger
+    const objList = [
+        new Road(400, "#555", "#FFD700"),
+        new House(50, 300, "#BF1E00", "#4D2822", "#F5B027", "#3E2C1C"),
+        new House(250, 300, "#A15E00", "#4D2822", "#F5B027", "#3E2C1C"),
+        new House(450, 300, "#A13E00", "#4D2822", "#F5B027", "#3E2C1C"),
+        new House(650, 300, "#3B8796", "#4D2822", "#F5B027", "#3E2C1C"),
+        new Tree(195, 330, "#228B22", "#8B4513"),
+        new Tree(395, 330, "#228B22", "#8B4513"),
+        new Tree(595, 330, "#228B22", "#8B4513"),
+        new Sun(700, 100, "#FFCC33", 1, 60),
+        new Car(200, 420, 2, "#317527", "#252625", 60, 30)
+    ];
+
+    // Spelloop
+    function gameloop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        objList.forEach(obj => obj.update()); 
+        objList.forEach(obj => obj.draw());   
+        requestAnimationFrame(gameloop);      
+    }
+
+    gameloop();
+</script>
+</body>
+</html>
+
+
+       
