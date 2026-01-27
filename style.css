@@ -15,7 +15,7 @@ canvas {
   /* Skapar mellanrum runt canvasen så att den inte sitter fast i kanterna på webbläsaren */
   margin: 10px;
   /* Bakgrundsbild till spelet */
-  background-image: url('https://wallpapercave.com/wp/7pDoP2C.png');
+  background-image: url('assets/background.png');
   background-size: cover;
   background-position: center;
 }
