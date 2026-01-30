@@ -46,6 +46,24 @@ function update() {
         mario.y = canvas.height - mario.height;
         mario.velocity = 0;
     }
+
+    // Pipe-timer
+    pipeTimer += 16;        // Ungefär 60 FPS
+
+    if (pipeTimer > pipeInterval) {
+        spawnPipePair();
+        pipeTimer = 0;
+    }
+
+    // Uppdaterar alla pipes
+    pipes.forEach(pipe => pipe.update());
+
+    // Tar bort pipes som åkt ut ur skärmen
+    for (let i = pipes.length - 1; i >= 0; i--) {
+        if (pipes[i].x + pipes[i].width < 0) {
+            pipes.splice(i, 1);
+        }
+    }
 }
 
 // Ritar allt på canvas
@@ -59,6 +77,99 @@ function draw() {
         mario.width,
         mario.height
     );
+
+    // Ritar alla pipes
+    pipes.forEach(pipe => pipe.draw());
+
+}
+
+class Pipe {
+    constructor(x, y, width, height, isFlipped = false) {
+        // Position
+        this.x = x;
+        this.y = y;
+
+        // Storlek
+        this.width = width;
+        this.height = height;
+
+        // Hur snabbt pipen rör sig åt vänster
+        this.speed = 3;
+
+        // Bild för pipen
+        this.Image = new Image();
+        this.Image.src = "assets/pipe.png";
+
+        // Om pipen ska vara uppåt
+        this.isFlipped = isFlipped;
+    }
+
+    // Uppdaterar pipens position
+    update() {
+        this.x -=this.speed;
+    }
+
+    // Ritar pipen på canvasen
+    draw() {
+
+        ctx.save();
+
+        if (this.isFlipped) {
+            // Vänder pipen uppåt
+            ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+            ctx.scale(1, -1);
+            ctx.drawImage(
+                this.Image,
+                -this.width / 2,
+                -this.height / 2,
+                this.width,
+                this.height
+            );
+        } else {
+            // Normal pipe
+            ctx.drawImage(this.Image, this.x, this.y, this.width, this.height);
+
+        }
+
+        ctx.restore();
+    }
+
+}
+
+// Lista som innehåller alla pipes
+const pipes = [];
+
+// Hur ofta nya pipes skapas (i milliesekunder)
+let pipeTimer = 0;
+const pipeInterval = 1500;
+
+// Skapar ett par pipes (top + botten)
+function spawnPipePair() {
+    const pipeWidth = 80;
+    const pipeGap = 220;    // Större gap än vanliga Flappy Bird
+
+    const gapY =
+        Math.random() * (canvas.height - pipeGap - 200) + 100;
+
+    // Topp-pipe
+    const topPipe = new Pipe(
+        canvas.width,
+        gapY - 300,
+        pipeWidth,
+        300,
+        true
+    );
+
+    // Botten-pipe
+    const bottomPipe = new Pipe(
+        canvas.width,
+        gapY + pipeGap,
+        pipeWidth,
+        300
+    );
+
+    pipes.push(topPipe);
+    pipes.push(bottomPipe);
 }
 
 // Spelloop
