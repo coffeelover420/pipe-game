@@ -15,13 +15,31 @@ const mario = {
     velocity: 0
 };
 
-// Fysikvärden
-const gravity = 0.8;       // Drar Mario nedåt
-const jumpStrength = -15;  // Hur högt Mario hoppar
+// Spelvariabler
+const gravity = 0.45;       // Drar Mario nedåt
+const jumpStrength = -9;    // Hur högt Mario hoppar
+
+let gameStarted = false;
+
+let gameOver = false;
+
+// Tid och highscore
+let startTime = Date.now();
+let currentTime = 0;
+let score = 0;
+let highScore = Number(localStorage.getItem("highScore")) || 0;
 
 // Hoppa-funktion
 function jump() {
-    mario.velocity = jumpStrength;
+    if (!gameStarted) {
+        gameStarted = true;
+        startTime = Date.now();
+        return;
+    }
+
+    if (!gameOver) {
+         mario.velocity = jumpStrength;
+    }
 }
 
 // Mellanslag (spacebar)
@@ -38,6 +56,8 @@ document.addEventListener("mousedown", function () {
 
 // Uppdaterar Marios position
 function update() {
+    if (!gameStarted || gameOver) return;
+
     mario.velocity += gravity;
     mario.y += mario.velocity;
 
@@ -46,6 +66,15 @@ function update() {
         mario.y = canvas.height - mario.height;
         mario.velocity = 0;
     }
+
+    // Tak-kollision
+    if (mario.y < 0) {
+        mario.y = 0;
+        mario.velocity = 0;
+    }
+
+    // Tid
+    currentTime = Math.floor((Date.now() - startTime) / 1000);
 
     // Pipe-timer
     pipeTimer += 16;        // Ungefär 60 FPS
@@ -56,7 +85,18 @@ function update() {
     }
 
     // Uppdaterar alla pipes
-    pipes.forEach(pipe => pipe.update());
+    pipes.forEach(pipe =>  {
+        pipe.update();
+
+        if (checkCollision(mario, pipe)) {
+            endGame();
+        }
+
+        if (!pipe.isFlipped && !pipe.passed && pipe.x + pipe.width < mario.x) {
+            pipe.passed = true;
+            score++;
+        }
+    });
 
     // Tar bort pipes som åkt ut ur skärmen
     for (let i = pipes.length - 1; i >= 0; i--) {
@@ -81,6 +121,93 @@ function draw() {
     // Ritar alla pipes
     pipes.forEach(pipe => pipe.draw());
 
+    // Text (Barriecito från CSS)
+    ctx.fillStyle = "white";
+    ctx.font = "20px Barriecito";
+
+    // Textskugga
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    ctx.fillText(`Score: ${score}`, 20, 30);
+
+    // Återställ skugga så den inte påverkar annat
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+
+    // STARTSKÄRM
+    if (!gameStarted) {
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "white";
+        ctx.font = "32px Barriecito";
+        ctx.textAlign = "center";
+
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+
+        ctx.fillText("PIPE GAME", canvas.width / 2, 180);
+        ctx.font = "20px Barriecito";
+        ctx.fillText("Tryck SPACE eller klicka", canvas.width / 2, 230);
+        ctx.fillText("för att starta", canvas.width / 2, 260);
+
+        ctx.shadowColor = "transparent";
+        ctx.textAlign = "left";
+        return;
+    }
+
+    // GAME OVER
+    if (gameOver) {
+
+        // Mörk bakgrund
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "white";
+        ctx.font = "28px Barriecito";
+        ctx.textAlign = "center";
+
+        // Skugga för all game over-text
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+
+        ctx.fillText("GAME OVER", canvas.width / 2, 140);
+        ctx.fillText(`Score: ${score}`, canvas.width / 2, 180);
+        ctx.fillText(`Highscore: ${highScore}`, canvas.width / 2, 220);
+
+        // Stäng av skugga innan knappen
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+
+        // Restart-knappen
+        ctx.fillStyle = "#ff4444";
+        ctx.fillRect(canvas.width / 2 - 70, 260, 140, 40);
+
+        ctx.fillStyle = "white";
+        ctx.font = "20px Barriecito";
+
+        // Liten textskugga
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+
+        ctx.fillText("Restart", canvas.width / 2, 290);
+
+        // Återställ
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.textAlign = "left";
+    }
+
 }
 
 class Pipe {
@@ -102,6 +229,9 @@ class Pipe {
 
         // Om pipen ska vara uppåt
         this.isFlipped = isFlipped;
+
+        // Används för poäng
+        this.passed = false;
     }
 
     // Uppdaterar pipens position
@@ -146,31 +276,87 @@ const pipeInterval = 1500;
 // Skapar ett par pipes (top + botten)
 function spawnPipePair() {
     const pipeWidth = 80;
-    const pipeGap = 220;    // Större gap än vanliga Flappy Bird
+    const pipeGap = 180;        // Lite större än original (snällare)
+    const minPipeHeight = 50;
 
-    const gapY =
-        Math.random() * (canvas.height - pipeGap - 200) + 100;
+    // Slumpar var gapet börjar
+    const gapStart =
+        Math.random() * (canvas.height - pipeGap - minPipeHeight * 2) +
+        minPipeHeight;
 
-    // Topp-pipe
+    // Topp-pipe (ner från toppen)
     const topPipe = new Pipe(
-        canvas.width,
-        gapY - 300,
+        canvas.width,           // Startar utanför högerkant
+        0,                      // Börjar vid toppen
         pipeWidth,
-        300,
-        true
+        gapStart,               // Slutar precis innan gapet
+        true                    // Flippad
     );
 
-    // Botten-pipe
+    // Botten-pipe (upp från botten)
     const bottomPipe = new Pipe(
         canvas.width,
-        gapY + pipeGap,
+        gapStart + pipeGap,     // Börjar efter gapet
         pipeWidth,
-        300
+        canvas.height - (gapStart + pipeGap)
     );
 
     pipes.push(topPipe);
     pipes.push(bottomPipe);
 }
+
+// Kollision
+function checkCollision(a, b) {
+    const padding = 10; 
+
+    return (
+        a.x + padding < b.x + b.width &&
+        a.x + a.width - padding > b.x &&
+        a.y + padding < b.y + b.height &&
+        a.y + a.height - padding > b.y
+    );
+}
+
+// GAME OVER
+function endGame() {
+    gameOver = true;
+
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+    }
+}
+
+// RESTART
+function restartGame() {
+    gameOver = false;
+    gameStarted = false;
+    pipes.length = 0;
+    score = 0;
+
+    mario.y = canvas.height - 120;
+    mario.velocity = 0;
+
+    startTime = Date.now();
+}
+
+// Klick på restart-knapp
+canvas.addEventListener("click", (e) => {
+    if (!gameOver) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    if (
+        mx > canvas.width / 2 - 70 &&
+        mx < canvas.width / 2 + 70 &&
+        my > 260 &&
+        my < 300
+    ) {
+        restartGame();
+    }
+});
 
 // Spelloop
 function gameLoop() {
