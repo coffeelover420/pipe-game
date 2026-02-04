@@ -104,6 +104,22 @@ function update() {
             pipes.splice(i, 1);
         }
     }
+
+    // Uppdaterar alla fiender
+    enemies.forEach(enemy => {
+        enemy.update();
+
+        if (checkEnemyCollision(mario, enemy)) {
+            endGame();
+        }
+    });
+
+    // Tar bort fiender som åkt ut ur skärmen
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        if (enemies[i].x + enemies[i].width < 0) {
+            enemies.splice(i, 1);
+        }
+    }
 }
 
 // Ritar allt på canvas
@@ -120,6 +136,9 @@ function draw() {
 
     // Ritar alla pipes
     pipes.forEach(pipe => pipe.draw());
+
+    // Ritar alla fiender
+    enemies.forEach(enemy => enemy.draw());
 
     // Text (Barriecito från CSS)
     ctx.fillStyle = "white";
@@ -266,6 +285,47 @@ class Pipe {
 
 }
 
+
+class Enemy {
+    constructor(x) {
+        this.x = x;
+
+        // Spawn-zon runt mitten av skärmen 
+        const centerY = canvas.height / 2;
+        const randomOffset = Math.random() * 120 - 60; // -60 till +60
+        this.baseY = centerY + randomOffset;
+        this.y = this.baseY;
+
+        // Storlek
+        this.width = 50;
+        this.height = 50;
+
+        // Rörelse
+        this.speedX = 3;
+        this.amplitude = 25;    // liten upp/ner-rörelse
+        this.frequency = 0.04;
+        this.time = 0;
+
+        // Bild
+        this.Image = new Image();
+        this.Image.src = "assets/koopa.png";
+    }
+
+    update() {
+        this.x -= this.speedX;
+
+        this.time++;
+        this.y = this.baseY + Math.sin(this.time * this.frequency) * this.amplitude;
+    }
+
+    draw() {
+        ctx.drawImage(this.Image, this.x, this.y, this.width, this.height);
+    }
+}
+
+// Lista som innehåller fienden
+const enemies = [];
+
 // Lista som innehåller alla pipes
 const pipes = [];
 
@@ -303,11 +363,25 @@ function spawnPipePair() {
 
     pipes.push(topPipe);
     pipes.push(bottomPipe);
+
+    const enemySpawnX = canvas.width + (pipeInterval / 16 / 2) * 3;
+    enemies.push(new Enemy(enemySpawnX));
 }
 
 // Kollision
 function checkCollision(a, b) {
     const padding = 10; 
+
+    return (
+        a.x + padding < b.x + b.width &&
+        a.x + a.width - padding > b.x &&
+        a.y + padding < b.y + b.height &&
+        a.y + a.height - padding > b.y
+    );
+}
+
+function checkEnemyCollision(a, b) {
+    const padding = 18; 
 
     return (
         a.x + padding < b.x + b.width &&
@@ -332,6 +406,7 @@ function restartGame() {
     gameOver = false;
     gameStarted = false;
     pipes.length = 0;
+    enemies.length = 0;
     score = 0;
 
     mario.y = canvas.height - 120;
